@@ -1,0 +1,21 @@
+Parameters:
+  VpcId:
+    Type: String
+    Description: The ID of the target VPC
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The IDs of one or more subnets
+  TransitGatewayId:
+    Type: String
+    Description: The ID of the transit gateway
+
+Resources:
+  VPNTransitGatewayAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      SubnetIds: !Ref SubnetIds
+      TransitGatewayId: !Ref TransitGatewayId
+      VpcId: !Ref VpcId
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName}'

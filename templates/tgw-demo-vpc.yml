@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: 2010-09-09
+# This CloudFormation template deploys a basic VPC / Network
+
+Parameters:
+  ClassB:
+    Description: 'Class B of VPC (10.XXX.0.0/16)'
+    Type: Number
+    Default: 0
+    ConstraintDescription: 'Must be in the range [0-255]'
+    MinValue: 0
+    MaxValue: 255
+  VpcName:
+    Description: 'Name of VPC (eg dev/test/prod; 1-16 chars; lower-case only)'
+    Type: String
+    Default: 'dev'
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][-a-zA-Z0-9]*'
+
+Resources:
+# create vpc
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Sub '10.${ClassB}.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames : true
+      Tags:
+      - Key: Name
+        Value: !Ref VpcName
+# Our VPC will need an Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: VPC
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-igw
+# The IGW will need attaching to the VPC
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  # Public Subnets
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Sub '10.${ClassB}.1.0/24'
+      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Public-A
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Sub '10.${ClassB}.2.0/24'
+      AvailabilityZone: !Select [ 1, !GetAZs ]    # Get the first AZ in the list
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Public-B
+# Some route tables for our subnets:
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Public
+  PublicRoute1:   # Public route table has direct routing to IGW:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+# Attach public route tables to public subnets
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+Outputs:
+  VPC:
+    Description: 'Reference ID of created VPC'
+    Value: !Ref VPC

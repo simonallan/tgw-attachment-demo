@@ -1,0 +1,26 @@
+Parameters:
+    VPNTransitGatewayAttachment:
+        Type: String
+        Description: VPN TG attachment Id
+    VPNCDIRRange:
+        Type: String
+        Description: Entire CDIR range behind VPN server
+        AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$'
+    EnvTGRTable:
+        Type: String
+        Description: TG Route Table to propagate Route (environment RT)
+
+Resources:
+    
+    Propagation:
+        Type: AWS::EC2::TransitGatewayRouteTablePropagation
+        Properties:
+            TransitGatewayAttachmentId: !Ref VPNTransitGatewayAttachment
+            TransitGatewayRouteTableId: !Ref EnvTGRTable
+    
+    Route:
+        Type: AWS::EC2::TransitGatewayRoute
+        Properties:
+            DestinationCidrBlock: !Ref VPNCDIRRange
+            TransitGatewayAttachmentId: !Ref VPNTransitGatewayAttachment
+            TransitGatewayRouteTableId: !Ref EnvTGRTable

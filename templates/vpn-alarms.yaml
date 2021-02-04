@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  TopicDisplayName:
+    Type: String
+    Description: Topic Display Name
+    Default: LZtoDataCenter
+  TopicName:
+    Type: String
+    Description: SNS Topic Name
+    Default: AWS-Landing-Zone-to-Datacenter-tunnel-alarm
+  SubscriptionEmail:
+    Type: String
+    Default: manuel.barragan@cancer.org.uk
+    Description: Email to notify
+  VpnId:
+    Type: String
+    Description: Transit Gateway site-to-site VPNId 
+  ThresholdDataOut:
+    Type: String
+    Description: Threshold in Bytes for the DataOut alarm
+    Default:  '1000000'
+  ThresholdDataIn:
+    Type: String
+    Description: Threshold in Bytes for the DataIn alarm
+    Default: '5000000'
+
+
+Resources:
+  VpnAlarmStatus:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: This alarm monitors the state of the VPN tunnel to the on-premise Datacenter
+
+      Period: 300
+      Statistic: Maximum
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ComparisonOperator: LessThanOrEqualToThreshold
+      Threshold: 0
+      Namespace: AWS/VPN
+      MetricName: TunnelState # The state of the tunnel. For static VPNs, 0 indicates DOWN and 1 indicates UP.
+      Dimensions:
+        - Name: VpnId
+          Value: !Ref VpnId
+
+      OKActions:
+        - !Ref VPNAlarmSNSTopic
+      InsufficientDataActions:
+        - !Ref VPNAlarmSNSTopic
+      AlarmActions:
+        - !Ref VPNAlarmSNSTopic
+
+  VpnAlarmTunnelDataOut:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+        AlarmDescription: This alarm monitors the traffic Out of the VPN site-to-site connection to the on-premise Datacenter
+        Period: 1500
+        Statistic: Sum
+        DatapointsToAlarm: 1
+        EvaluationPeriods: 1
+        ComparisonOperator: LessThanOrEqualToThreshold
+        Threshold:  !Ref ThresholdDataOut
+        Namespace: AWS/VPN
+        MetricName:  TunnelDataOut 
+        Dimensions:
+        - Name: VpnId
+          Value: !Ref VpnId
+
+        OKActions:
+        - !Ref VPNAlarmSNSTopic
+        InsufficientDataActions:
+        - !Ref VPNAlarmSNSTopic
+        AlarmActions:
+        - !Ref VPNAlarmSNSTopic
+    
+  VpnAlarmTunnelDataIn:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+        AlarmDescription: This alarm monitors the traffic In of the VPN site-to-site connection to the on-premise Datacenter
+        Period: 1500
+        Statistic: Sum
+        DatapointsToAlarm: 1
+        EvaluationPeriods: 1
+        ComparisonOperator: LessThanOrEqualToThreshold
+        Threshold:  !Ref ThresholdDataIn 
+        Namespace: AWS/VPN
+        MetricName:  TunnelDataOut 
+        Dimensions:
+        - Name: VpnId
+          Value: !Ref VpnId
+
+        OKActions:
+        - !Ref VPNAlarmSNSTopic
+        InsufficientDataActions:
+        - !Ref VPNAlarmSNSTopic
+        AlarmActions:
+        - !Ref VPNAlarmSNSTopic
+
+
+  VPNAlarmSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Ref TopicDisplayName
+      TopicName: !Ref TopicName
+  VPNAlarmTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AWSSNSPolicy
+          Action:
+            - sns:Publish
+          Effect: Allow
+          Resource: !Ref VPNAlarmSNSTopic
+          Principal:
+            Service:
+            - cloudwatch.amazonaws.com
+      Topics:
+        - !Ref VPNAlarmSNSTopic
+  VPNAlarmTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref SubscriptionEmail
+      Protocol: email
+      TopicArn: !Ref VPNAlarmSNSTopic

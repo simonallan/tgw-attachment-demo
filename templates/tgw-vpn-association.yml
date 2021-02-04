@@ -1,0 +1,14 @@
+Parameters:
+    VPNTransitGatewayAttachment:
+        Type: String
+        Description: VPN TG attachment Id
+    VPNTGRoutingTable:
+        Type: String
+        Description: TG Route Table to add this associate VPNTransitGatewayAttachment (All-Route-Table)
+
+Resources:
+    VPNRouteTableAssociation:
+        Type: AWS::EC2::TransitGatewayRouteTableAssociation
+        Properties:
+            TransitGatewayAttachmentId: !Ref VPNTransitGatewayAttachment
+            TransitGatewayRouteTableId: !Ref VPNTGRoutingTable

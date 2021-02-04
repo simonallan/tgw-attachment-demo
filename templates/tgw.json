@@ -1,0 +1,73 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Deploying TGW to network account in Landing Zone",
+    "Resources": {
+        "TransitGateway": {
+            "Type": "AWS::EC2::TransitGateway",
+            "Properties": {
+                "Description": "TGW for LZ",
+                "AutoAcceptSharedAttachments": "enable",
+                "DefaultRouteTableAssociation": "disable",
+                "DefaultRouteTablePropagation": "disable",
+                "DnsSupport": "enable",
+                "VpnEcmpSupport": "disable"
+            }
+        },
+        "DevRouteTable": {
+            "Type": "AWS::EC2::TransitGatewayRouteTable",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Dev-Route-Table"
+                    }
+                ],
+                "TransitGatewayId": {
+                    "Ref": "TransitGateway"
+                }
+            }
+        },
+        "ProdRouteTable": {
+            "Type": "AWS::EC2::TransitGatewayRouteTable",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Prod-Route-Table"
+                    }
+                ],
+                "TransitGatewayId": {
+                    "Ref": "TransitGateway"
+                }
+            }
+        },
+        "TestRouteTable": {
+            "Type": "AWS::EC2::TransitGatewayRouteTable",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Test-Route-Table"
+                    }
+                ],
+                "TransitGatewayId": {
+                    "Ref": "TransitGateway"
+                }
+            }
+        },
+        "AllRouteTable": {
+            "Type": "AWS::EC2::TransitGatewayRouteTable",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "All-Route-Table"
+                    }
+                ],
+                "TransitGatewayId": {
+                    "Ref": "TransitGateway"
+                }
+            }
+        }
+    }
+}

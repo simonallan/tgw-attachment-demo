@@ -1,0 +1,150 @@
+Parameters:
+  ClassB:
+    Description: 'Class B of VPC (10.XXX.0.0/16)'
+    Type: Number
+    Default: 4
+    ConstraintDescription: 'Must be in the range [0-255]'
+    MinValue: 0
+    MaxValue: 255
+  ClassC:
+    Description: 'Class C of VPC (10.0.XXX.0/16)'
+    Type: Number
+    Default: 100
+    ConstraintDescription: 'Must be in the range [0-255]'
+    MinValue: 0
+    MaxValue: 255
+  VpcName:
+    Description: 'Name of VPC (eg dev/test/prod; 1-16 chars; lower-case only)'
+    Type: String
+    Default: 'datacentre'
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][-a-zA-Z0-9]*'
+  AMI:
+    Description: The Ubuntu AMI to use.
+    Type: AWS::EC2::Image::Id
+    Default: ami-0d3f551818b21ed81
+  InstanceType:
+    Type: String
+    Description: 'Type of AWS instance to use'
+    Default: 't2.micro'
+  Key:
+    Type: String
+    Description: The key used to access the instance.
+    Default: 'tgw-attach-demo'
+Resources:
+# Create the VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Sub '10.${ClassB}.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames : true
+      Tags:
+      - Key: Name
+        Value: !Ref VpcName
+
+# Our VPC will need a Customer Gateway...
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: VPC
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-igw
+# ...and it will need attaching to the VPC
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+# Public Subnets
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Sub '10.${ClassB}.${ClassC}.0/24'
+      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Public-A
+# Some route tables for our subnets:
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Public
+  PublicRoute1:   # Public route table has direct routing to IGW:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+# Attach public route tables to public subnets
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+# Security Group for the CGW instance
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${VpcName}-cgw-sg'
+      GroupDescription: 'Instance security group'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        # CidrIp: 89.35.199.71/32
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: icmp
+        FromPort: 8
+        ToPort: -1
+        # CidrIp: 89.35.199.71/32
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-sg
+# Create an EC2 instance to simulate the Customer GW device
+  CustomerGatewayInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref AMI
+      InstanceType:
+        Ref: InstanceType
+      KeyName: !Ref Key
+      SubnetId: !Ref PublicSubnetA
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${AWS::StackName}-cgw-public-a
+# Create an elastic IP address
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+# Associate the EIP from earlier with the instance
+  IPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt EIP.AllocationId
+      InstanceId: !Ref CustomerGatewayInstance
+
+Outputs:
+  VPC:
+    Description: 'Reference ID of CGW VPC'
+    Value: !Ref VPC
+  EIP:
+    Description: 'External IP address of CGW instance'
+    Value: !Ref EIP

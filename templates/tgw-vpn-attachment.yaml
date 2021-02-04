@@ -1,0 +1,17 @@
+Parameters:
+    LandingZoneTransitGatewayId:
+        Type: String
+        Description: current Transit Gateway Id
+    LandingZoneCustomerGatewayId:
+        Type: String
+        Description: AWS customer Gateway id to use
+   
+Resources:
+    VPNTransitGatewayAttachment:
+        Type: AWS::EC2::VPNConnection
+        Properties: 
+          CustomerGatewayId: !Ref LandingZoneCustomerGatewayId
+          StaticRoutesOnly: true
+          TransitGatewayId: !Ref LandingZoneTransitGatewayId
+          Type: ipsec.1
+    

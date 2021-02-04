@@ -1,0 +1,12 @@
+Parameters:
+    OnPremiseIPAddress:
+        Type: String
+        Description: Internet routable IP address of the VPN server endpoint
+
+Resources:
+    LandingZoneCustomerGateway:
+        Type: AWS::EC2::CustomerGateway
+        Properties: 
+            BgpAsn: 65000
+            IpAddress: !Ref OnPremiseIPAddress
+            Type: ipsec.1
